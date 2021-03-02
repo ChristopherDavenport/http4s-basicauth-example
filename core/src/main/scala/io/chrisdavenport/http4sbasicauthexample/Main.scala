@@ -21,23 +21,30 @@ object Main extends IOApp {
 
 object Server {
   val allowedUsers = Map("chris" -> "foo")
+
   def server[F[_]: Concurrent: Timer: ContextShift]: Resource[F, Unit] = {
     for {
       _ <- EmberServerBuilder.default[F]
-        .withHttpApp(authMiddleware(allowedUsers)(Sync[F])(routes[F]).orNotFound)
+        .withHttpApp(routes.orNotFound)
         .build
     } yield ()
   }
 
+  // Here we compose AuthMiddleware(how we get a user)
+  // and AuthedRoutes(what to do when we have a user) and generate a set of responses
+  // including what to do when they are not a valid user.
+  def routes[F[_]: Sync]: HttpRoutes[F] = authMiddleware(allowedUsers)(Sync[F])(authedRoutes[F])
 
   // If User is in Static Map then Allow to operate, 
-  // otherwise return auth challenge
+  // otherwise return auth challenge. 
+  // Can be any method of validation you want. This was just simple to demonstrate.
   def authMiddleware[F[_]: Sync](staticValid: Map[String, String]): AuthMiddleware[F, String] = BasicAuth.apply("localhost:8080", {bc: BasicCredentials => 
     staticValid.get(bc.username).flatMap(pass => Alternative[Option].guard(pass === bc.password)).as(bc.username).pure[F]
   })
 
 
-  def routes[F[_]: Applicative: Defer]: AuthedRoutes[String, F] = {
+  // What to do when you already have a user as validated by an authMiddleware
+  def authedRoutes[F[_]: Applicative: Defer]: AuthedRoutes[String, F] = {
     val dsl = new Http4sDsl[F]{}; import dsl._
 
     AuthedRoutes.of[String, F]{
