@@ -38,7 +38,7 @@ object Server {
   // If User is in Static Map then Allow to operate, 
   // otherwise return auth challenge. 
   // Can be any method of validation you want. This was just simple to demonstrate.
-  def authMiddleware[F[_]: Sync](staticValid: Map[String, String]): AuthMiddleware[F, String] = BasicAuth.apply("localhost:8080", {bc: BasicCredentials => 
+  def authMiddleware[F[_]: Sync](staticValid: Map[String, String]): AuthMiddleware[F, String] = BasicAuth.apply("localhost:8080", {(bc: BasicCredentials) => 
     staticValid.get(bc.username).flatMap(pass => Alternative[Option].guard(pass === bc.password)).as(bc.username).pure[F]
   })
 
